@@ -4,6 +4,7 @@ import { Card } from '@/components/ui/card';
 import { Upload, Languages, Video, CheckCircle, Play, FileText, PenTool } from 'lucide-react';
 import heroAvatar from '@/assets/hero-avatar.jpg';
 import TextWritingArea from './TextWritingArea';
+import { supabase } from '@/integrations/supabase/client';
 
 interface Step {
   id: number;
@@ -22,6 +23,7 @@ const VideoGenerationPlatform = () => {
   const [translatedScripts, setTranslatedScripts] = useState<Record<string, string>>({});
   const [audioFiles, setAudioFiles] = useState<Record<string, string>>({});
   const [isProcessing, setIsProcessing] = useState(false);
+  const [baseScriptText, setBaseScriptText] = useState<string>('');
 
   const steps: Step[] = [
     {
@@ -70,76 +72,97 @@ const VideoGenerationPlatform = () => {
     { code: 'bn', name: 'Bengali', flag: '🇮🇳' },
   ];
 
-  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
       setUploadedScript(file);
-      setScriptFromWriter(null); // Clear text writer script
-      setShowTextWriter(false); // Hide text writer
-      setCurrentStep(2); // Move to language selection
+      setScriptFromWriter(null);
+      setShowTextWriter(false);
+      try {
+        const text = await file.text();
+        setBaseScriptText(text);
+      } catch (e) {
+        console.error('Failed to read file text', e);
+      }
+      setCurrentStep(2);
       console.log('File uploaded, moving to step 2');
     }
   };
 
   const handleScriptFromWriter = (script: any) => {
     setScriptFromWriter(script);
-    setUploadedScript(null); // Clear uploaded file
-    setCurrentStep(2); // Move to language selection
+    setUploadedScript(null);
+    setBaseScriptText(script?.content || '');
+    setCurrentStep(2);
     console.log('Script from writer, moving to step 2');
   };
 
-  const proceedToTranslation = () => {
+  const proceedToTranslation = async () => {
     if (selectedLanguages.length > 0) {
       setCurrentStep(3);
       setIsProcessing(true);
-      console.log('Starting translation for languages:', selectedLanguages);
-      // Simulate translation and audio generation
-      setTimeout(() => {
+      try {
+        const text = baseScriptText || scriptFromWriter?.content || '';
+        const { data, error } = await supabase.functions.invoke('sarvam-translate', {
+          body: { text, target_langs: selectedLanguages },
+        });
+        if (error) throw error;
+        setTranslatedScripts(data?.translations || {});
+
+        const audioResults = await Promise.all(
+          selectedLanguages.map(async (code) => {
+            const t = (data?.translations && data.translations[code]) || text;
+            const { data: ttsData, error: ttsError } = await supabase.functions.invoke('sarvam-tts', {
+              body: { text: t, lang: code },
+            });
+            if (ttsError) throw ttsError;
+            const uri = `data:${ttsData?.contentType || 'audio/wav'};base64,${ttsData?.audioBase64}`;
+            return [code, uri] as const;
+          })
+        );
+        const audioMap: Record<string, string> = {};
+        audioResults.forEach(([code, uri]) => { audioMap[code] = uri; });
+        setAudioFiles(audioMap);
+
         setCurrentStep(4);
         setTimeout(() => {
           setCurrentStep(5);
           setIsProcessing(false);
-        }, 3000);
-      }, 2000);
+        }, 1200);
+      } catch (e) {
+        console.error('Translation/TTS failed', e);
+        setIsProcessing(false);
+      }
     }
   };
 
   const downloadVideo = (langCode: string, langName: string) => {
-    // Create a mock video file blob
-    const canvas = document.createElement('canvas');
-    canvas.width = 1920;
-    canvas.height = 1080;
-    const ctx = canvas.getContext('2d');
-    
-    if (ctx) {
-      // Create a simple video frame
-      ctx.fillStyle = '#1a1a2e';
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
-      
-      ctx.fillStyle = '#16213e';
-      ctx.fillRect(50, 50, canvas.width - 100, canvas.height - 100);
-      
-      ctx.fillStyle = '#ffffff';
-      ctx.font = '48px Arial';
-      ctx.textAlign = 'center';
-      ctx.fillText(`${langName} Avatar Video`, canvas.width / 2, canvas.height / 2 - 50);
-      ctx.fillText(`Script: ${uploadedScript?.name || scriptFromWriter?.title || 'Generated Script'}`, canvas.width / 2, canvas.height / 2 + 50);
-      
-      canvas.toBlob((blob) => {
-        if (blob) {
-          const url = URL.createObjectURL(blob);
-          const a = document.createElement('a');
-          a.href = url;
-          a.download = `avatar-video-${langCode}-${Date.now()}.png`;
-          document.body.appendChild(a);
-          a.click();
-          document.body.removeChild(a);
-          URL.revokeObjectURL(url);
-        }
-      }, 'image/png');
-    }
-    
-    console.log(`Downloaded video for ${langName} (${langCode})`);
+    // Placeholder until HeyGen integration is fully wired with public audio URLs
+    alert('Video download requires HeyGen integration with public audio URLs. Coming next!');
+  };
+
+  const downloadTranslation = (langCode: string, langName: string) => {
+    const text = translatedScripts[langCode] || baseScriptText || '';
+    const blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `translation-${langCode}-${Date.now()}.txt`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
+  const downloadAudio = (langCode: string, langName: string) => {
+    const uri = audioFiles[langCode];
+    if (!uri) return;
+    const a = document.createElement('a');
+    a.href = uri;
+    a.download = `audio-${langCode}-${Date.now()}.wav`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
   };
 
   const toggleLanguage = (langCode: string) => {
@@ -454,18 +477,37 @@ const VideoGenerationPlatform = () => {
                           <div className="flex items-center gap-3">
                             <span className="text-2xl">{lang.flag}</span>
                             <div className="text-left">
-                              <p className="text-white font-medium">{lang.name} Video</p>
-                              <p className="text-sm text-muted-foreground">Ready for download</p>
+                              <p className="text-white font-medium">{lang.name}</p>
+                              <p className="text-sm text-muted-foreground">Translations and audio ready</p>
                             </div>
                           </div>
-                          <Button 
-                            variant="outline" 
-                            size="sm" 
-                            className="border-accent/50 text-accent hover:bg-accent/20"
-                            onClick={() => downloadVideo(lang.code, lang.name)}
-                          >
-                            Download
-                          </Button>
+                          <div className="flex gap-2">
+                            <Button 
+                              variant="outline" 
+                              size="sm" 
+                              className="border-accent/50 text-accent hover:bg-accent/20"
+                              onClick={() => downloadTranslation(lang.code, lang.name)}
+                            >
+                              Download Translation
+                            </Button>
+                            <Button 
+                              variant="outline" 
+                              size="sm" 
+                              className="border-accent/50 text-accent hover:bg-accent/20"
+                              onClick={() => downloadAudio(lang.code, lang.name)}
+                              disabled={!audioFiles[lang.code]}
+                            >
+                              Download Audio
+                            </Button>
+                            <Button 
+                              variant="outline" 
+                              size="sm" 
+                              className="border-primary/50 text-primary hover:bg-primary/20"
+                              onClick={() => downloadVideo(lang.code, lang.name)}
+                            >
+                              Download Video
+                            </Button>
+                          </div>
                         </div>
                       ))}
                   </div>

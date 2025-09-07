@@ -1,1 +1,10 @@
 project_id = "ibpociegfflajvhevlla"
+
+[functions.sarvam-translate]
+verify_jwt = false
+
+[functions.sarvam-tts]
+verify_jwt = false
+
+[functions.heygen-generate]
+verify_jwt = false
