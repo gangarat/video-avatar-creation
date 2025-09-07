@@ -104,6 +104,44 @@ const VideoGenerationPlatform = () => {
     }
   };
 
+  const downloadVideo = (langCode: string, langName: string) => {
+    // Create a mock video file blob
+    const canvas = document.createElement('canvas');
+    canvas.width = 1920;
+    canvas.height = 1080;
+    const ctx = canvas.getContext('2d');
+    
+    if (ctx) {
+      // Create a simple video frame
+      ctx.fillStyle = '#1a1a2e';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      
+      ctx.fillStyle = '#16213e';
+      ctx.fillRect(50, 50, canvas.width - 100, canvas.height - 100);
+      
+      ctx.fillStyle = '#ffffff';
+      ctx.font = '48px Arial';
+      ctx.textAlign = 'center';
+      ctx.fillText(`${langName} Avatar Video`, canvas.width / 2, canvas.height / 2 - 50);
+      ctx.fillText(`Script: ${uploadedScript?.name || scriptFromWriter?.title || 'Generated Script'}`, canvas.width / 2, canvas.height / 2 + 50);
+      
+      canvas.toBlob((blob) => {
+        if (blob) {
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = `avatar-video-${langCode}-${Date.now()}.png`;
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          URL.revokeObjectURL(url);
+        }
+      }, 'image/png');
+    }
+    
+    console.log(`Downloaded video for ${langName} (${langCode})`);
+  };
+
   const toggleLanguage = (langCode: string) => {
     setSelectedLanguages(prev => 
       prev.includes(langCode) 
@@ -420,7 +458,12 @@ const VideoGenerationPlatform = () => {
                               <p className="text-sm text-muted-foreground">Ready for download</p>
                             </div>
                           </div>
-                          <Button variant="outline" size="sm" className="border-accent/50 text-accent hover:bg-accent/20">
+                          <Button 
+                            variant="outline" 
+                            size="sm" 
+                            className="border-accent/50 text-accent hover:bg-accent/20"
+                            onClick={() => downloadVideo(lang.code, lang.name)}
+                          >
                             Download
                           </Button>
                         </div>
