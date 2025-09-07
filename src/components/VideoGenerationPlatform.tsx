@@ -19,28 +19,45 @@ const VideoGenerationPlatform = () => {
   const [selectedLanguages, setSelectedLanguages] = useState<string[]>([]);
   const [showTextWriter, setShowTextWriter] = useState(false);
   const [scriptFromWriter, setScriptFromWriter] = useState<any>(null);
+  const [translatedScripts, setTranslatedScripts] = useState<Record<string, string>>({});
+  const [audioFiles, setAudioFiles] = useState<Record<string, string>>({});
+  const [isProcessing, setIsProcessing] = useState(false);
 
   const steps: Step[] = [
     {
       id: 1,
       title: "Upload Script",
-      description: "Upload your script to sync with HeyGen Avatar",
+      description: "Upload your script or write text",
       icon: <FileText className="w-6 h-6" />,
       status: currentStep === 1 ? 'active' : currentStep > 1 ? 'completed' : 'pending'
     },
     {
       id: 2,
-      title: "Generate Audio",
-      description: "Audio generated across all selected languages",
+      title: "Select Languages",
+      description: "Choose languages for translation",
       icon: <Languages className="w-6 h-6" />,
       status: currentStep === 2 ? 'active' : currentStep > 2 ? 'completed' : 'pending'
     },
     {
       id: 3,
-      title: "Final Output",
-      description: "Video and audio sync generation complete",
+      title: "Translate & Generate Audio",
+      description: "Script translation and audio generation",
+      icon: <Languages className="w-6 h-6" />,
+      status: currentStep === 3 ? 'active' : currentStep > 3 ? 'completed' : 'pending'
+    },
+    {
+      id: 4,
+      title: "Avatar Sync",
+      description: "Sync avatar with generated audio",
       icon: <Video className="w-6 h-6" />,
-      status: currentStep === 3 ? 'active' : 'pending'
+      status: currentStep === 4 ? 'active' : currentStep > 4 ? 'completed' : 'pending'
+    },
+    {
+      id: 5,
+      title: "Final Output",
+      description: "Download your completed videos",
+      icon: <CheckCircle className="w-6 h-6" />,
+      status: currentStep === 5 ? 'active' : 'pending'
     }
   ];
 
@@ -66,6 +83,21 @@ const VideoGenerationPlatform = () => {
     setCurrentStep(2);
   };
 
+  const proceedToTranslation = () => {
+    if (selectedLanguages.length > 0) {
+      setCurrentStep(3);
+      setIsProcessing(true);
+      // Simulate translation and audio generation
+      setTimeout(() => {
+        setCurrentStep(4);
+        setTimeout(() => {
+          setCurrentStep(5);
+          setIsProcessing(false);
+        }, 3000);
+      }, 2000);
+    }
+  };
+
   const toggleLanguage = (langCode: string) => {
     setSelectedLanguages(prev => 
       prev.includes(langCode) 
@@ -74,12 +106,6 @@ const VideoGenerationPlatform = () => {
     );
   };
 
-  const startGeneration = () => {
-    if (selectedLanguages.length > 0) {
-      setCurrentStep(3);
-      // Here you would integrate with HeyGen and Sarvam APIs
-    }
-  };
 
   return (
     <div className="min-h-screen bg-gradient-hero">
@@ -276,8 +302,8 @@ const VideoGenerationPlatform = () => {
                   </div>
                   {selectedLanguages.length > 0 && (
                     <div className="text-center">
-                      <Button variant="accent" size="lg" onClick={startGeneration}>
-                        Generate Videos ({selectedLanguages.length} languages)
+                      <Button variant="accent" size="lg" onClick={proceedToTranslation}>
+                        Start Translation & Audio Generation ({selectedLanguages.length} languages)
                       </Button>
                     </div>
                   )}
@@ -285,48 +311,106 @@ const VideoGenerationPlatform = () => {
               </Card>
             )}
 
-            {/* Step 3: Generation Progress */}
+            {/* Step 3: Translation & Audio Generation */}
             {currentStep === 3 && (
               <Card className="p-8 bg-glass-bg backdrop-blur-glass border-glass-border">
                 <div className="text-center space-y-6">
                   <div className="mx-auto w-16 h-16 bg-accent/20 rounded-full flex items-center justify-center">
-                    <Video className="w-8 h-8 text-accent animate-pulse" />
+                    <Languages className="w-8 h-8 text-accent animate-pulse" />
                   </div>
                   <div>
-                    <h3 className="text-2xl font-bold text-white mb-2">Generating Videos</h3>
+                    <h3 className="text-2xl font-bold text-white mb-2">Translating Script & Generating Audio</h3>
                     <p className="text-muted-foreground">
-                      Creating synchronized avatar videos in {selectedLanguages.length} languages...
+                      Processing script translation and audio generation for {selectedLanguages.length} languages...
                     </p>
                   </div>
                   <div className="space-y-4">
-                    <div className="bg-secondary/50 rounded-lg p-4">
-                      <div className="flex items-center justify-between mb-2">
-                        <span className="text-white">Audio Translation</span>
-                        <span className="text-accent">100%</span>
-                      </div>
-                      <div className="w-full bg-muted rounded-full h-2">
-                        <div className="bg-accent h-2 rounded-full w-full"></div>
-                      </div>
+                    {languages
+                      .filter(lang => selectedLanguages.includes(lang.code))
+                      .map((lang, index) => (
+                        <div key={lang.code} className="bg-secondary/50 rounded-lg p-4">
+                          <div className="flex items-center justify-between mb-2">
+                            <span className="text-white flex items-center gap-2">
+                              <span className="text-xl">{lang.flag}</span>
+                              {lang.name} - Translation & Audio
+                            </span>
+                            <span className="text-accent">
+                              {isProcessing ? `${Math.min(100, (index + 1) * 25)}%` : '100%'}
+                            </span>
+                          </div>
+                          <div className="w-full bg-muted rounded-full h-2">
+                            <div 
+                              className="bg-accent h-2 rounded-full transition-all duration-500" 
+                              style={{ width: isProcessing ? `${Math.min(100, (index + 1) * 25)}%` : '100%' }}
+                            ></div>
+                          </div>
+                        </div>
+                      ))}
+                  </div>
+                </div>
+              </Card>
+            )}
+
+            {/* Step 4: Avatar Sync */}
+            {currentStep === 4 && (
+              <Card className="p-8 bg-glass-bg backdrop-blur-glass border-glass-border">
+                <div className="text-center space-y-6">
+                  <div className="mx-auto w-16 h-16 bg-primary/20 rounded-full flex items-center justify-center">
+                    <Video className="w-8 h-8 text-primary animate-pulse" />
+                  </div>
+                  <div>
+                    <h3 className="text-2xl font-bold text-white mb-2">Syncing Avatar with Audio</h3>
+                    <p className="text-muted-foreground">
+                      Synchronizing HeyGen avatar with generated audio files...
+                    </p>
+                  </div>
+                  <div className="bg-secondary/50 rounded-lg p-4">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-white">Avatar Synchronization</span>
+                      <span className="text-primary">Processing...</span>
                     </div>
-                    <div className="bg-secondary/50 rounded-lg p-4">
-                      <div className="flex items-center justify-between mb-2">
-                        <span className="text-white">Avatar Sync</span>
-                        <span className="text-accent">85%</span>
-                      </div>
-                      <div className="w-full bg-muted rounded-full h-2">
-                        <div className="bg-accent h-2 rounded-full w-[85%]"></div>
-                      </div>
-                    </div>
-                    <div className="bg-secondary/50 rounded-lg p-4">
-                      <div className="flex items-center justify-between mb-2">
-                        <span className="text-white">Video Rendering</span>
-                        <span className="text-primary">60%</span>
-                      </div>
-                      <div className="w-full bg-muted rounded-full h-2">
-                        <div className="bg-primary h-2 rounded-full w-[60%]"></div>
-                      </div>
+                    <div className="w-full bg-muted rounded-full h-2">
+                      <div className="bg-primary h-2 rounded-full w-[75%] animate-pulse"></div>
                     </div>
                   </div>
+                </div>
+              </Card>
+            )}
+
+            {/* Step 5: Final Output */}
+            {currentStep === 5 && (
+              <Card className="p-8 bg-glass-bg backdrop-blur-glass border-glass-border">
+                <div className="text-center space-y-6">
+                  <div className="mx-auto w-16 h-16 bg-accent/20 rounded-full flex items-center justify-center">
+                    <CheckCircle className="w-8 h-8 text-accent" />
+                  </div>
+                  <div>
+                    <h3 className="text-2xl font-bold text-white mb-2">Videos Ready!</h3>
+                    <p className="text-muted-foreground">
+                      Your multilingual avatar videos have been generated successfully.
+                    </p>
+                  </div>
+                  <div className="grid gap-4">
+                    {languages
+                      .filter(lang => selectedLanguages.includes(lang.code))
+                      .map((lang) => (
+                        <div key={lang.code} className="bg-secondary/50 rounded-lg p-4 flex items-center justify-between">
+                          <div className="flex items-center gap-3">
+                            <span className="text-2xl">{lang.flag}</span>
+                            <div className="text-left">
+                              <p className="text-white font-medium">{lang.name} Video</p>
+                              <p className="text-sm text-muted-foreground">Ready for download</p>
+                            </div>
+                          </div>
+                          <Button variant="outline" size="sm" className="border-accent/50 text-accent hover:bg-accent/20">
+                            Download
+                          </Button>
+                        </div>
+                      ))}
+                  </div>
+                  <Button variant="accent" size="lg" onClick={() => setCurrentStep(1)}>
+                    Create New Video
+                  </Button>
                 </div>
               </Card>
             )}
