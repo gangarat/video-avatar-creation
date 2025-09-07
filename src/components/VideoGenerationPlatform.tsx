@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
-import { Upload, Languages, Video, CheckCircle, Play, FileText } from 'lucide-react';
+import { Upload, Languages, Video, CheckCircle, Play, FileText, PenTool } from 'lucide-react';
 import heroAvatar from '@/assets/hero-avatar.jpg';
+import TextWritingArea from './TextWritingArea';
 
 interface Step {
   id: number;
@@ -16,6 +17,8 @@ const VideoGenerationPlatform = () => {
   const [currentStep, setCurrentStep] = useState(1);
   const [uploadedScript, setUploadedScript] = useState<File | null>(null);
   const [selectedLanguages, setSelectedLanguages] = useState<string[]>([]);
+  const [showTextWriter, setShowTextWriter] = useState(false);
+  const [scriptFromWriter, setScriptFromWriter] = useState<any>(null);
 
   const steps: Step[] = [
     {
@@ -42,16 +45,12 @@ const VideoGenerationPlatform = () => {
   ];
 
   const languages = [
-    { code: 'en', name: 'English', flag: '🇺🇸' },
-    { code: 'es', name: 'Spanish', flag: '🇪🇸' },
-    { code: 'fr', name: 'French', flag: '🇫🇷' },
-    { code: 'de', name: 'German', flag: '🇩🇪' },
-    { code: 'it', name: 'Italian', flag: '🇮🇹' },
-    { code: 'pt', name: 'Portuguese', flag: '🇵🇹' },
-    { code: 'zh', name: 'Chinese', flag: '🇨🇳' },
-    { code: 'ja', name: 'Japanese', flag: '🇯🇵' },
-    { code: 'ko', name: 'Korean', flag: '🇰🇷' },
-    { code: 'hi', name: 'Hindi', flag: '🇮🇳' }
+    { code: 'hi', name: 'Hindi', flag: '🇮🇳' },
+    { code: 'mr', name: 'Marathi', flag: '🇮🇳' },
+    { code: 'te', name: 'Telugu', flag: '🇮🇳' },
+    { code: 'kn', name: 'Kannada', flag: '🇮🇳' },
+    { code: 'ta', name: 'Tamil', flag: '🇮🇳' },
+    { code: 'bn', name: 'Bengali', flag: '🇮🇳' },
   ];
 
   const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -60,6 +59,11 @@ const VideoGenerationPlatform = () => {
       setUploadedScript(file);
       setCurrentStep(2);
     }
+  };
+
+  const handleScriptFromWriter = (script: any) => {
+    setScriptFromWriter(script);
+    setCurrentStep(2);
   };
 
   const toggleLanguage = (langCode: string) => {
@@ -189,27 +193,52 @@ const VideoGenerationPlatform = () => {
                       Upload your script file to sync with HeyGen Avatar ID: 73fde05ce8be49dcb37e1b532abd351a
                     </p>
                   </div>
-                  <div className="border-2 border-dashed border-primary/30 rounded-lg p-8 hover:border-primary/50 transition-colors">
-                    <input
-                      type="file"
-                      accept=".txt,.doc,.docx"
-                      onChange={handleFileUpload}
-                      className="hidden"
-                      id="script-upload"
-                    />
-                    <label htmlFor="script-upload" className="cursor-pointer">
-                      <div className="space-y-4">
-                        <Upload className="w-12 h-12 text-primary mx-auto" />
-                        <div>
-                          <p className="text-white font-medium">Click to upload script</p>
-                          <p className="text-muted-foreground text-sm">Supports .txt, .doc, .docx files</p>
+                  <div className="space-y-4">
+                    <div className="border-2 border-dashed border-primary/30 rounded-lg p-8 hover:border-primary/50 transition-colors">
+                      <input
+                        type="file"
+                        accept=".txt,.doc,.docx"
+                        onChange={handleFileUpload}
+                        className="hidden"
+                        id="script-upload"
+                      />
+                      <label htmlFor="script-upload" className="cursor-pointer">
+                        <div className="space-y-4">
+                          <Upload className="w-12 h-12 text-primary mx-auto" />
+                          <div>
+                            <p className="text-white font-medium">Click to upload script</p>
+                            <p className="text-muted-foreground text-sm">Supports .txt, .doc, .docx files</p>
+                          </div>
                         </div>
-                      </div>
-                    </label>
+                      </label>
+                    </div>
+                    
+                    <div className="flex items-center gap-4">
+                      <div className="flex-1 h-px bg-glass-border"></div>
+                      <span className="text-muted-foreground text-sm">OR</span>
+                      <div className="flex-1 h-px bg-glass-border"></div>
+                    </div>
+                    
+                    <Button 
+                      variant="outline" 
+                      className="w-full border-accent/50 text-accent hover:bg-accent/20"
+                      onClick={() => setShowTextWriter(!showTextWriter)}
+                    >
+                      <PenTool className="w-4 h-4 mr-2" />
+                      {showTextWriter ? 'Hide Text Writer' : 'Write Script Directly'}
+                    </Button>
                   </div>
-                  {uploadedScript && (
+                  {(uploadedScript || scriptFromWriter) && (
                     <div className="bg-secondary/50 rounded-lg p-4">
-                      <p className="text-white">✓ {uploadedScript.name} uploaded successfully</p>
+                      <p className="text-white">
+                        ✓ {uploadedScript ? uploadedScript.name : scriptFromWriter?.title} ready for processing
+                      </p>
+                    </div>
+                  )}
+                  
+                  {showTextWriter && (
+                    <div className="mt-6">
+                      <TextWritingArea onScriptUpload={handleScriptFromWriter} />
                     </div>
                   )}
                 </div>
