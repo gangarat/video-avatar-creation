@@ -74,19 +74,25 @@ const VideoGenerationPlatform = () => {
     const file = event.target.files?.[0];
     if (file) {
       setUploadedScript(file);
-      setCurrentStep(2);
+      setScriptFromWriter(null); // Clear text writer script
+      setShowTextWriter(false); // Hide text writer
+      setCurrentStep(2); // Move to language selection
+      console.log('File uploaded, moving to step 2');
     }
   };
 
   const handleScriptFromWriter = (script: any) => {
     setScriptFromWriter(script);
-    setCurrentStep(2);
+    setUploadedScript(null); // Clear uploaded file
+    setCurrentStep(2); // Move to language selection
+    console.log('Script from writer, moving to step 2');
   };
 
   const proceedToTranslation = () => {
     if (selectedLanguages.length > 0) {
       setCurrentStep(3);
       setIsProcessing(true);
+      console.log('Starting translation for languages:', selectedLanguages);
       // Simulate translation and audio generation
       setTimeout(() => {
         setCurrentStep(4);
@@ -176,6 +182,11 @@ const VideoGenerationPlatform = () => {
             </p>
           </div>
 
+          {/* Debug indicator */}
+          <div className="text-center mb-4">
+            <span className="text-sm text-muted-foreground">Current Step: {currentStep}</span>
+          </div>
+
           {/* Progress Steps */}
           <div className="flex justify-center mb-12">
             <div className="flex items-center space-x-4">
@@ -255,10 +266,17 @@ const VideoGenerationPlatform = () => {
                     </Button>
                   </div>
                   {(uploadedScript || scriptFromWriter) && (
-                    <div className="bg-secondary/50 rounded-lg p-4">
-                      <p className="text-white">
+                    <div className="bg-accent/20 border border-accent/50 rounded-lg p-4 mt-4">
+                      <p className="text-accent font-medium">
                         ✓ {uploadedScript ? uploadedScript.name : scriptFromWriter?.title} ready for processing
                       </p>
+                      <Button 
+                        variant="accent" 
+                        className="w-full mt-3"
+                        onClick={() => setCurrentStep(2)}
+                      >
+                        Continue to Language Selection
+                      </Button>
                     </div>
                   )}
                   
