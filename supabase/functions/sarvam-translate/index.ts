@@ -46,15 +46,20 @@ serve(async (req) => {
       target_langs.map(async (lang: string) => {
         const target_code = mapLang(lang);
         try {
-          const res = await fetch("https://api.sarvam.ai/text/translate", {
+          const res = await fetch("https://api.sarvam.ai/translate", {
             method: "POST",
             headers: {
               "Content-Type": "application/json",
               "api-subscription-key": apiKey,
             },
             body: JSON.stringify({
-              text,
+              input: text,
+              source_language_code: "hi-IN",
               target_language_code: target_code,
+              speaker_gender: "Female",
+              mode: "formal",
+              model: "mayura:v1",
+              enable_preprocessing: true
             }),
           });
 
@@ -65,8 +70,8 @@ serve(async (req) => {
             return;
           }
           const data = await res.json();
-          // Try common response shapes
-          const translated = data?.translated_text || data?.data?.translated_text || data?.result || data?.text || `[${lang}] ${text}`;
+          // Sarvam API returns translated text
+          const translated = data?.translated_text || `[${lang}] ${text}`;
           translations[lang] = translated;
         } catch (e) {
           console.error("Sarvam translate exception", e);

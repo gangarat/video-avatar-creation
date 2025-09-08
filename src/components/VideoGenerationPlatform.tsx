@@ -99,7 +99,6 @@ const VideoGenerationPlatform = () => {
 
   const proceedToTranslation = async () => {
     if (selectedLanguages.length > 0) {
-      setCurrentStep(3);
       setIsProcessing(true);
       try {
         const text = baseScriptText || scriptFromWriter?.content || '';
@@ -108,31 +107,40 @@ const VideoGenerationPlatform = () => {
         });
         if (error) throw error;
         setTranslatedScripts(data?.translations || {});
-
-        const audioResults = await Promise.all(
-          selectedLanguages.map(async (code) => {
-            const t = (data?.translations && data.translations[code]) || text;
-            const { data: ttsData, error: ttsError } = await supabase.functions.invoke('sarvam-tts', {
-              body: { text: t, lang: code },
-            });
-            if (ttsError) throw ttsError;
-            const uri = `data:${ttsData?.contentType || 'audio/wav'};base64,${ttsData?.audioBase64}`;
-            return [code, uri] as const;
-          })
-        );
-        const audioMap: Record<string, string> = {};
-        audioResults.forEach(([code, uri]) => { audioMap[code] = uri; });
-        setAudioFiles(audioMap);
-
-        setCurrentStep(4);
-        setTimeout(() => {
-          setCurrentStep(5);
-          setIsProcessing(false);
-        }, 1200);
+        setIsProcessing(false);
       } catch (e) {
-        console.error('Translation/TTS failed', e);
+        console.error('Translation failed', e);
         setIsProcessing(false);
       }
+    }
+  };
+
+  const proceedToAudioGeneration = async () => {
+    setCurrentStep(3);
+    setIsProcessing(true);
+    try {
+      const audioResults = await Promise.all(
+        selectedLanguages.map(async (code) => {
+          const t = translatedScripts[code] || baseScriptText || scriptFromWriter?.content || '';
+          const { data: ttsData, error: ttsError } = await supabase.functions.invoke('sarvam-tts', {
+            body: { text: t, lang: code },
+          });
+          if (ttsError) throw ttsError;
+          const uri = `data:${ttsData?.contentType || 'audio/wav'};base64,${ttsData?.audioBase64}`;
+          return [code, uri] as const;
+        })
+      );
+      const audioMap: Record<string, string> = {};
+      audioResults.forEach(([code, uri]) => { audioMap[code] = uri; });
+      setAudioFiles(audioMap);
+
+      setTimeout(() => {
+        setCurrentStep(4);
+        setIsProcessing(false);
+      }, 1000);
+    } catch (e) {
+      console.error('Audio generation failed', e);
+      setIsProcessing(false);
     }
   };
 
@@ -350,7 +358,7 @@ const VideoGenerationPlatform = () => {
               </Card>
             )}
 
-            {/* Step 2: Language Selection */}
+            {/* Step 2: Language Selection & Translation */}
             {currentStep === 2 && (
               <Card className="p-8 bg-glass-bg backdrop-blur-glass border-glass-border">
                 <div className="space-y-6">
@@ -358,31 +366,54 @@ const VideoGenerationPlatform = () => {
                     <div className="mx-auto w-16 h-16 bg-accent/20 rounded-full flex items-center justify-center mb-4">
                       <Languages className="w-8 h-8 text-accent" />
                     </div>
-                    <h3 className="text-2xl font-bold text-white mb-2">Select Languages</h3>
+                    <h3 className="text-2xl font-bold text-white mb-2">Select Languages & Translate</h3>
                     <p className="text-muted-foreground">
-                      Choose the languages for audio generation and translation
+                      Choose the languages for translation and download translated scripts
                     </p>
                   </div>
-                  <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                     {languages.map((lang) => (
-                      <button
+                      <div
                         key={lang.code}
-                        onClick={() => toggleLanguage(lang.code)}
                         className={`p-4 rounded-lg border transition-all duration-200 ${
                           selectedLanguages.includes(lang.code)
                             ? 'border-accent bg-accent/20 text-accent'
-                            : 'border-glass-border bg-glass-bg text-white hover:border-accent/50'
+                            : 'border-glass-border bg-glass-bg text-white'
                         }`}
                       >
-                        <div className="text-2xl mb-2">{lang.flag}</div>
-                        <div className="text-sm font-medium">{lang.name}</div>
-                      </button>
+                        <button
+                          onClick={() => toggleLanguage(lang.code)}
+                          className="w-full text-left"
+                        >
+                          <div className="text-2xl mb-2">{lang.flag}</div>
+                          <div className="text-sm font-medium">{lang.name}</div>
+                        </button>
+                        {selectedLanguages.includes(lang.code) && translatedScripts[lang.code] && (
+                          <div className="mt-3">
+                            <Button 
+                              variant="outline" 
+                              size="sm" 
+                              className="w-full"
+                              onClick={() => downloadTranslation(lang.code, lang.name)}
+                            >
+                              Download Translation
+                            </Button>
+                          </div>
+                        )}
+                      </div>
                     ))}
                   </div>
-                  {selectedLanguages.length > 0 && (
+                  {selectedLanguages.length > 0 && Object.keys(translatedScripts).length === 0 && (
                     <div className="text-center">
                       <Button variant="accent" size="lg" onClick={proceedToTranslation}>
-                        Start Translation & Audio Generation ({selectedLanguages.length} languages)
+                        Start Translation ({selectedLanguages.length} languages)
+                      </Button>
+                    </div>
+                  )}
+                  {Object.keys(translatedScripts).length > 0 && (
+                    <div className="text-center">
+                      <Button variant="accent" size="lg" onClick={() => setCurrentStep(3)}>
+                        Continue to Audio Generation
                       </Button>
                     </div>
                   )}
@@ -390,7 +421,7 @@ const VideoGenerationPlatform = () => {
               </Card>
             )}
 
-            {/* Step 3: Translation & Audio Generation */}
+            {/* Step 3: Audio Generation */}
             {currentStep === 3 && (
               <Card className="p-8 bg-glass-bg backdrop-blur-glass border-glass-border">
                 <div className="text-center space-y-6">
@@ -398,11 +429,16 @@ const VideoGenerationPlatform = () => {
                     <Languages className="w-8 h-8 text-accent animate-pulse" />
                   </div>
                   <div>
-                    <h3 className="text-2xl font-bold text-white mb-2">Translating Script & Generating Audio</h3>
+                    <h3 className="text-2xl font-bold text-white mb-2">Generating Audio</h3>
                     <p className="text-muted-foreground">
-                      Processing script translation and audio generation for {selectedLanguages.length} languages...
+                      Creating audio files from translated scripts for {selectedLanguages.length} languages...
                     </p>
                   </div>
+                  {!isProcessing && Object.keys(audioFiles).length === 0 && (
+                    <Button variant="accent" size="lg" onClick={proceedToAudioGeneration}>
+                      Start Audio Generation
+                    </Button>
+                  )}
                   <div className="space-y-4">
                     {languages
                       .filter(lang => selectedLanguages.includes(lang.code))
@@ -411,7 +447,7 @@ const VideoGenerationPlatform = () => {
                           <div className="flex items-center justify-between mb-2">
                             <span className="text-white flex items-center gap-2">
                               <span className="text-xl">{lang.flag}</span>
-                              {lang.name} - Translation & Audio
+                              {lang.name} - Audio Generation
                             </span>
                             <span className="text-accent">
                               {isProcessing ? `${Math.min(100, (index + 1) * 25)}%` : '100%'}
@@ -422,13 +458,32 @@ const VideoGenerationPlatform = () => {
                               className="bg-accent h-2 rounded-full transition-all duration-500" 
                               style={{ width: isProcessing ? `${Math.min(100, (index + 1) * 25)}%` : '100%' }}
                             ></div>
-                          </div>
-                        </div>
-                      ))}
-                  </div>
-                </div>
-              </Card>
-            )}
+                           </div>
+                           {audioFiles[lang.code] && (
+                             <div className="mt-3">
+                               <Button 
+                                 variant="outline" 
+                                 size="sm" 
+                                 className="w-full"
+                                 onClick={() => downloadAudio(lang.code, lang.name)}
+                               >
+                                 Download Audio
+                               </Button>
+                             </div>
+                           )}
+                         </div>
+                       ))}
+                   </div>
+                   {Object.keys(audioFiles).length > 0 && Object.keys(audioFiles).length === selectedLanguages.length && (
+                     <div className="text-center">
+                       <Button variant="accent" size="lg" onClick={() => setCurrentStep(4)}>
+                         Continue to Avatar Sync
+                       </Button>
+                     </div>
+                   )}
+                 </div>
+               </Card>
+             )}
 
             {/* Step 4: Avatar Sync */}
             {currentStep === 4 && (

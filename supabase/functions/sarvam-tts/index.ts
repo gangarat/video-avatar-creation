@@ -83,13 +83,23 @@ serve(async (req) => {
     const language_code = mapLang(lang);
 
     try {
-      const res = await fetch("https://api.sarvam.ai/text-to-speech/convert", {
+      const res = await fetch("https://api.sarvam.ai/text-to-speech", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           "api-subscription-key": apiKey,
         },
-        body: JSON.stringify({ text, language_code }),
+        body: JSON.stringify({ 
+          inputs: [text],
+          target_language_code: language_code,
+          speaker: "meera",
+          pitch: 0,
+          pace: 1.0,
+          loudness: 1.0,
+          speech_sample_rate: 8000,
+          enable_preprocessing: true,
+          model: "bulbul:v1"
+        }),
       });
 
       if (!res.ok) {
@@ -103,8 +113,9 @@ serve(async (req) => {
       }
 
       const data = await res.json();
-      // Docs: output is a wave file encoded as base64 string.
-      const audioBase64 = data?.audio || data?.audio_base64 || data?.result || data?.data || data?.wav_base64;
+      // Sarvam API returns an array of audios
+      const audios = data?.audios;
+      const audioBase64 = Array.isArray(audios) && audios.length > 0 ? audios[0] : data?.audio;
       if (!audioBase64) {
         console.warn("Sarvam TTS unknown response shape, using fallback");
         const fallback = generateBeepWavBase64();
